@@ -1,5 +1,0 @@
-1. I am not verifying the email during signup which implies that the email might be invalid.
-
-2. I am sending the password from the client to the server without encrpytion. So, if someone intercepts the 
-request on the way from client to server then they can have easy access to the password.
-
