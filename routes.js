@@ -2,20 +2,28 @@ const admincred = require("./admincred");
 const express = require("express");
 const router = express.Router();
 const db = require("./Database/db");
-const checkDuplicateEmail = require("./Database/duplicateChecker");
+//const checkDuplicateEmail = require("./Database/duplicateChecker");
+
 const bcrypt = require("bcrypt");
 //const validEmail = require('./Database/validLogin')
 const nj = require("./nodeMailerjwt");
 require("dotenv").config();
 
+//const ser = require("./server");
+
 /*
 router.post("/api/creatingtables", async (req, res) => {
+  await db.tableCreator();
+  await db.createCoursesTableIfNotExists();
   await db.tableAdvising();
   await db.tableprereq();
   await db.tableCourseplan();
   await db.tableCourseRecords();
+  
+  
 });*/
 
+/*
 router.post("/tableCreator-Checker", async (req, res) => {
   const { id, username, email, password, firstName, lastName } = req.body;
   const newPassword = await bcrypt.hash(password, 10);
@@ -48,7 +56,48 @@ router.post("/tableCreator-Checker", async (req, res) => {
     console.error("Error in route handler:", error);
     res.status(500).send("Error processing your request");
   }
-});
+});*/
+
+async function tableCreatorChecker(req, res) {
+  const { username, email, password, firstName, lastName } = req.body;
+  const newPassword = await bcrypt.hash(password, 10);
+  const admin = false;
+
+  const regex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+  try {
+    // Attempt to create the table
+    //await db.tableCreator();
+    //await db.createCoursesTableIfNotExists();
+
+    // Check if the 'users' table exists
+    //const exists = await db.existenceChecker("users");
+    //if (!exists) {
+    //return res.status(500).send("Error: Table does not exist");
+    //}
+
+    if (!regex.test(password)) {
+      return res.status(500).send({ passValid: false });
+    } else {
+      const isDuplicate = await db.checkDuplicateEmail(email);
+      //console.log(isDuplicate);
+      if (isDuplicate) {
+        return res
+          .status(409)
+          .send("Duplicate Email! The email already exists, try logging in");
+      }
+
+      await db.insertData(username, email, newPassword, admin);
+      res.send("Data inserted successfully!");
+    }
+  } catch (error) {
+    console.error("Error in route handler:", error);
+    res.status(500).send("Error processing your request");
+  }
+}
+
+router.post("/tableCreator-Checker", tableCreatorChecker);
 
 router.post("/valid-email", async (req, res) => {
   const { email, password } = req.body;
@@ -211,10 +260,20 @@ router.get("/backend-admin-viewer", async (req, res) => {
 
 router.post("/reset-response", async (req, res) => {
   const { emailToGo, newpassword } = req.body;
-  const newPassword = await bcrypt.hash(newpassword, 10);
-  await db.passwordUpdater(newPassword, emailToGo);
+  const regex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-  res.send({ passUpdate: true });
+  if (!regex.test(newpassword)) {
+    res.status(500).send({
+      message:
+        "Please enter a password with with uppercase and lowercase, number and special.",
+    });
+  } else {
+    const newPassword = await bcrypt.hash(newpassword, 10);
+    await db.passwordUpdater(newPassword, emailToGo);
+
+    res.send({ passUpdate: true });
+  }
 });
 
 //route handler for adding course prereq
@@ -245,7 +304,7 @@ router.post("/api/premodify/:courseId", async (req, res) => {
       [courseId]
     );
 
-    if (!courseData.length) throw new Error("Course not found A"); // Course itself doesn't exist
+    if (!courseData.length) throw new Error("Course not found A");
 
     const existingPrerequisites = courseData[0].prerequisites || [];
     if (
@@ -610,4 +669,180 @@ router.post("/api/rejection-email", async (req, res) => {
   }
 });
 
-module.exports = router;
+router.post("/verify-captcha", async (req, res) => {
+  const { captchaToken } = req.body;
+  const responseKey = captchaToken;
+  const secretKey = "6LdOGbopAAAAAK7VPW-XqWR1-y-RCoFEEikk7jwZ";
+  const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${responseKey}`;
+  console.log(secretKey);
+  console.log(responseKey);
+
+  try {
+    const response = await fetch(verifyUrl, {
+      method: "POST",
+    });
+    console.log("This is the response", response);
+    const data = await response.json();
+    console.log("This is the data ", data);
+
+    if (data.success) {
+      res.send({ success: true, message: "Captcha verification passed" });
+    } else {
+      res.send({ success: false, message: "Captcha verification failed" });
+    }
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Server error during captcha verification",
+    });
+  }
+});
+
+router.get("/seth", (req, res) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Content-Security-Policy", "frame-ancestors 'none'");
+});
+
+router.post("/forget-passw-email-ver", async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(500).send({ message: "please enter an email" });
+  } else {
+    const isAdminUser = await db.getUserByEmail(email);
+    if (isAdminUser.length === 0) {
+      res.status(500).send({ message: "User does not exist" });
+    } else {
+      const userRow = await db.getId(email);
+      const token = nj.generateToken(userRow);
+      await db.tokenUpdater(token, email);
+      nj.sendVerificationEmail(userRow, token);
+      res.status(200).send({
+        message: "Verification email sent",
+        isAdmin: isAdminUser[0].admin,
+      });
+    }
+  }
+});
+
+router.post("/token-for-ver", async (req, res) => {
+  const { token, email } = req.body;
+  //const salt = process.env.SECRET_KEY;
+
+  const retrievedToken = await db.tokenRetriever(email);
+
+  //console.log('This is my email', emailToGo)
+  //console.log('This is my verifyer', verifyer);
+  //console.log('This is my retrievedTOken', retrievedToken[0].loginToken)
+
+  //here I am checking if the token which came with the http request is equal to the token which was stored in the users table
+  if (!token) {
+    return res
+      .status(500)
+      .send({ message: "Please enter valid token", verified: false });
+  } else {
+    if (retrievedToken[0].loginToken === token) {
+      res.send({ verified: true, message: "Token verification successful" });
+      await db.tokenDeleter(email);
+    } else {
+      res.send({
+        verified: false,
+        message: "Invalid token entered please enter a valid token",
+      });
+    }
+  }
+});
+
+router.get("/questions", async (req, res) => {
+  const allQuestions = await db.getQuestions();
+  if (allQuestions.length === 0) {
+    //console.log(allQuestions);
+    return res.status(409).send({ message: "The Questions list is empty" });
+  } else {
+    //console.log(allQuestions);
+    res.status(200).send(allQuestions);
+  }
+});
+
+router.post("/question-add", async (req, res) => {
+  const { emailToGo, userInput } = req.body;
+
+  //console.log("This is email to go", emailToGo);
+  //console.log("This is newPassword", userInput);
+
+  try {
+    const userid = await db.getUserIdQues(emailToGo);
+    //console.log("this is userid", userid[0].id);
+    await db.newQuestionInserter(userid[0].id, userInput);
+    res.send({ message: "Insertion successful" });
+  } catch (error) {
+    console.error("There was an error executing the db function");
+    res
+      .status(500)
+      .send({ message: "There was an error executing the db function" });
+  }
+});
+
+router.post("/answers", async (req, res) => {
+  //get answers for a specific question.
+  const { questionId } = req.body;
+  try {
+    const allAnswers = await db.getAnswersForaSpecificQues(questionId);
+    if (allAnswers.length === 0) {
+      res
+        .status(500)
+        .send({ message: "There were no answers for this question" });
+    } else {
+      res.status(200).send(allAnswers);
+    }
+  } catch (error) {
+    console.error("There was an error fetching data from answers ");
+    res
+      .status(500)
+      .send({ message: "There was an error fetching data from answers" });
+  }
+});
+
+router.post("/get-username", async (req, res) => {
+  const { questionId } = req.body;
+  try {
+    const username = await db.getUserWhoAskedQues(questionId);
+    //console.log(username[0][0].username);
+    res.status(200).send(username[0][0].username);
+  } catch (error) {
+    console.error(
+      "There was an error with some function when getting the username"
+    );
+    res
+      .status(500)
+      .send({ message: "There was an error when getting the username" });
+  }
+});
+
+router.post("/answer-insert", async (req, res) => {
+  const { emailToGo, adminVal, questionId, userInput } = req.body;
+  console.log("this is email to go", emailToGo);
+  console.log("this is email to go", questionId);
+  console.log("this is email to go", userInput);
+
+  if (userInput.length === 0) {
+    return res.status(500).send({ message: "no reply sent" });
+  } else {
+    const userid = await db.getUserIdQues(emailToGo);
+    console.log("this is email to go", userid);
+    try {
+      await db.answerInserter(questionId, userid[0].id, userInput);
+      res.send({ message: "data inserted successfully" });
+    } catch (error) {
+      res.status(500).send({
+        message: "There was an error getting userid or inserting the answer",
+      });
+    }
+  }
+});
+
+module.exports = {
+  router,
+  tableCreatorChecker,
+};
+//module.exports.tableCreatorChecker = tableCreatorChecker;

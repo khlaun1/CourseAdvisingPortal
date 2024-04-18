@@ -19,6 +19,11 @@ import Viewrecords from "./Viewrecords";
 import Adminadvising from "./Adminadvising";
 import Adminadvisinguser from "./Adminadvisinguser";
 import Profilesettings from "./Profilesettings";
+import Clickjack from "./Clickjack";
+import Forgetpassword from "./Forgetpassword";
+import Tokenverifyer from "./Tokenverifyer";
+import QuestionsPage from "./Questionspage";
+import Answers from "./Answers";
 
 function App() {
   return (
@@ -65,6 +70,25 @@ function App() {
           <Route
             path="/profile/:emailToGo/:adminVal/profileupdater"
             element={<Profilesettings />}
+          />
+
+          <Route path="/clickjacktest" element={<Clickjack />} />
+
+          <Route path="/forgetpassword/" element={<Forgetpassword />} />
+
+          <Route
+            path="/tok-verification/:email/:adminVal"
+            element={<Tokenverifyer />}
+          />
+
+          <Route
+            path="/profile/questions/:emailToGo/:adminVal"
+            element={<QuestionsPage />}
+          />
+
+          <Route
+            path="/profile/questions/:emailToGo/:adminVal/:questionId/:question"
+            element={<Answers />}
           />
 
           {/* Other routes */}

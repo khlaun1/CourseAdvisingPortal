@@ -61,11 +61,11 @@ const existenceChecker = async (tableName) => {
 };
 
 //function for inserting data
-const insertData = async (id, username, email, password, admin) => {
+const insertData = async (username, email, password, admin) => {
   const SignupInserter =
-    "INSERT INTO users (id, username, email, password, admin, loginToken) VALUES (?, ?, ?, ?, ?, NULL)";
+    "INSERT INTO users (username, email, password, admin, loginToken) VALUES (?, ?, ?, ?, NULL)";
   try {
-    await dbconn.query(SignupInserter, [id, username, email, password, admin]);
+    await dbconn.query(SignupInserter, [username, email, password, admin]);
   } catch (err) {
     console.error("Error running the insertion query", err);
     throw err;
@@ -382,7 +382,7 @@ const tableAdvising = async () => {
     await dbconn.query(advisingQ);
     console.log("Table created successfully");
   } catch (err) {
-    consoler.error("There was a problem creating the table advising", err);
+    console.error("There was a problem creating the table advising", err);
     throw err;
   }
 };
@@ -682,10 +682,9 @@ const updateAdvisingAndInsertCourses = async (advisingId, newStatus) => {
     // Commit the transaction
     await dbconn.query("COMMIT");
   } catch (error) {
-    // Rollback the transaction in case of error
     await dbconn.query("ROLLBACK");
     console.error("Error in updateAdvisingAndInsertCourses:", error);
-    throw error; // Re-throw the error for the caller to handle
+    throw error;
   }
 };
 
@@ -731,6 +730,119 @@ const getUserAdvisingDetails = async (studentId) => {
     throw error;
   }
 };
+
+const checkDuplicateEmail = async (email) => {
+  const query = "SELECT COUNT(*) AS count FROM users WHERE email = ?";
+  try {
+    const [results] = await dbconn.query(query, [email]);
+    const isDuplicate = results[0].count > 0;
+
+    if (isDuplicate) {
+      console.log("Duplicate email: the email already exists");
+    } else {
+      console.log("The email is unique, inserting the email in database!");
+    }
+
+    return isDuplicate;
+  } catch (err) {
+    console.error(
+      "Error querying and checking if the email exists or not",
+      err
+    );
+    throw err;
+  }
+};
+
+const createTableQuestions = async () => {
+  const query = `CREATE TABLE questions (
+    questionid INT NOT NULL AUTO_INCREMENT,
+    userid INT NOT NULL,
+    questions VARCHAR(255) NOT NULL,
+    PRIMARY KEY (questionid),
+    FOREIGN KEY (userid) REFERENCES users(id)
+  )`;
+};
+
+const getQuestions = async () => {
+  const query = `SELECT * FROM questions`;
+  try {
+    const resp = await dbconn.query(query);
+    return resp[0];
+  } catch (error) {
+    console.error("there was an error accessing the database");
+    throw err;
+  }
+};
+
+const newQuestionInserter = async (userid, question) => {
+  const query = `INSERT into questions(userid, questions) VALUES(?, ?)`;
+  try {
+    await dbconn.query(query, [userid, question]);
+  } catch (error) {
+    console.error("There was an error inserting the values into the database");
+    throw err;
+  }
+};
+
+const getUserIdQues = async (email) => {
+  const query = `SELECT id from users where email=?`;
+  try {
+    const respq = await dbconn.query(query, [email]);
+    return respq[0];
+  } catch (error) {
+    console.error("There was an error accessing the users table");
+    throw err;
+  }
+};
+
+const createTableAnswers = async () => {
+  query = `create table answers (
+    answerid int auto_increment,
+    questionid int not null,
+    userid int not null,
+    answer varchar(255) not null,
+    primary key(answerid),
+    foreign key (questionid) references questions(questionid),
+    foreign key (userid) references users(id)
+  )`;
+};
+
+const getAnswersForaSpecificQues = async (quesid) => {
+  const query = `SELECT a.answer, u.username FROM answers a JOIN users u ON a.userid = u.id WHERE a.questionid = ?;`;
+  try {
+    const respA = await dbconn.query(query, [quesid]);
+    return respA[0];
+  } catch (error) {
+    console.error("there was an error accessing the answers table");
+    throw err;
+  }
+};
+
+//query function for inserting into the table answers
+const answerInserter = async (quesid, userid, answer) => {
+  const query = `insert into answers(questionid, userid, answer) values (?, ?, ?)`;
+  try {
+    await dbconn.query(query, [quesid, userid, answer]);
+  } catch (error) {
+    console.error(
+      "there was an error inserting the values into the table answers"
+    );
+    throw err;
+  }
+};
+
+const getUserWhoAskedQues = async (quesid) => {
+  const query = `SELECT u.username FROM questions q JOIN users u ON q.userid = u.id WHERE q.questionid = ?;`;
+  try {
+    const respU = dbconn.query(query, [quesid]);
+    return respU;
+  } catch (error) {
+    console.error("There was an error accessing questions and users table");
+    throw err;
+  }
+};
+
+//get quesid from
 
 //exporting the functions
 module.exports = {
@@ -780,4 +892,13 @@ module.exports = {
   updateAdvisingAndInsertCourses,
   updatingCourseRejection,
   getUserAdvisingDetails,
+  checkDuplicateEmail,
+  createTableQuestions,
+  getQuestions,
+  newQuestionInserter,
+  getUserIdQues,
+  createTableAnswers,
+  getAnswersForaSpecificQues,
+  answerInserter,
+  getUserWhoAskedQues,
 };

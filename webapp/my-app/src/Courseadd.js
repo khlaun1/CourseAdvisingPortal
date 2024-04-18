@@ -138,6 +138,7 @@ function Courseadd() {
   return (
     <div>
       <div className="flex justify-end p-4 bg-gray-300 border-b border-gray-400 shadow-lg">
+        <img src="/fav.png" alt="logo" className="h-12 w-12 mr-auto" />
         <button
           onClick={handleHome}
           className="bg-gray-300 hover:bg-gray-400 text-black font-bold py-2 px-4 rounded"
@@ -216,7 +217,6 @@ function Courseadd() {
                   required
                 />
               </div>
-              {/* Add similar input fields for coursename and courselevel */}
 
               <div className="mb-4">
                 <label htmlFor="coursename">Course Name:</label>

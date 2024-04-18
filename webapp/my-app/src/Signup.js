@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import acceptableDomains from "./Domain";
 import { useNavigate } from "react-router-dom";
 
@@ -45,8 +45,11 @@ function Signup() {
           alert("User already exists, please login.");
           return;
         }
-        const errMsg = await duplicateCheckResponse.text();
-        setMessage("Error: " + errMsg);
+        const errMsg = await duplicateCheckResponse.json();
+        if(!errMsg.passValid){
+          alert("Please enter a password with with uppercase and lowercase, number and special.")
+        }
+        //setMessage("Error: " + errMsg);
         return;
       } else {
         if (duplicateCheckResponse.status === 409) {
@@ -88,51 +91,64 @@ function Signup() {
 */
   };
 
+
+
+  const [isMobile, setIsMobile] = useState(isMobileDevice());
+
+useEffect(() => {
+  function handleResize() {
+    setIsMobile(isMobileDevice());
+  }
+
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
+}, []);
+
+
+function isMobileDevice() {
+  return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
+}
+
+
+
+
   return (
-    <div className="flex items-center justify-center h-screen bg-teal-700">
-      <div className="p-10 bg-white rounded-lg shadow-2xl">
+    <div className="flex items-center justify-center min-h-screen bg-teal-700 p-4">
+      <div className="w-full max-w-lg p-10 bg-white rounded-lg shadow-2xl">
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-10">
           Signup
         </h2>
         <form onSubmit={submitHandler}>
           <div className="mb-6">
-            <label
-              className="block mb-2 text-sm font-bold text-gray-700"
-              htmlFor="firstName"
-            >
+            <label className="block mb-2 text-sm font-bold text-gray-700" htmlFor="firstName">
               First Name
             </label>
             <input
               className="w-full px-4 py-3 text-gray-700 border rounded-lg shadow-sm focus:outline-none focus:shadow-outline"
               id="firstName"
-              type="firstName"
+              type="text"
               placeholder="Enter your First Name"
               value={firstName}
-              onChange={(eventObj) => setFirstName(eventObj.target.value)}
+              onChange={(e) => setFirstName(e.target.value)}
             />
           </div>
-
+  
           <div className="mb-6">
-            <label
-              className="block mb-2 text-sm font-bold text-gray-700"
-              htmlFor="lastName"
-            >
+            <label className="block mb-2 text-sm font-bold text-gray-700" htmlFor="lastName">
               Last Name
             </label>
             <input
               className="w-full px-4 py-3 text-gray-700 border rounded-lg shadow-sm focus:outline-none focus:shadow-outline"
               id="lastName"
-              type="lastName"
+              type="text"
               placeholder="Enter your Last Name"
               value={lastName}
-              onChange={(eventObj) => setLastName(eventObj.target.value)}
+              onChange={(e) => setLastName(e.target.value)}
             />
           </div>
+  
           <div className="mb-6">
-            <label
-              className="block mb-2 text-sm font-bold text-gray-700"
-              htmlFor="email"
-            >
+            <label className="block mb-2 text-sm font-bold text-gray-700" htmlFor="email">
               Email
             </label>
             <input
@@ -141,14 +157,12 @@ function Signup() {
               type="email"
               placeholder="Enter Email"
               value={email}
-              onChange={(eventObj) => setEmail(eventObj.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
+  
           <div className="mb-8">
-            <label
-              className="block mb-2 text-sm font-bold text-gray-700"
-              htmlFor="password"
-            >
+            <label className="block mb-2 text-sm font-bold text-gray-700" htmlFor="password">
               Password
             </label>
             <input
@@ -157,9 +171,10 @@ function Signup() {
               type="password"
               placeholder="Enter password"
               value={password}
-              onChange={(eventObj) => setPassword(eventObj.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+  
           <div className="flex items-center justify-between">
             <button
               className="w-full py-3 font-bold text-white bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:shadow-outline"
@@ -169,11 +184,13 @@ function Signup() {
             </button>
           </div>
         </form>
+  
         {message && (
           <div className="mt-4 text-sm text-center text-green-600">
             {message}
           </div>
         )}
+  
         <button
           onClick={goToLogin}
           className="absolute top-3 right-3 px-4 py-2 text-sm font-semibold text-black bg-white rounded hover:bg-gray-700 focus:outline-none focus:shadow-outline"
